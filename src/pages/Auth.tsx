@@ -78,8 +78,8 @@ export default function Auth() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary mb-3">
-            <Smartphone className="h-7 w-7 text-primary-foreground" />
+          <div className="flex items-center justify-center overflow-hidden bg-transparent mb-3">
+            <img src="/favicon.png" alt="Logo" className=" w-[160px] h-[160px] h-full w-full object-contain" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Easy Assist</h1>
           <p className="text-muted-foreground text-sm">Sistema de Gestão para Assistências Tecnicas</p>
