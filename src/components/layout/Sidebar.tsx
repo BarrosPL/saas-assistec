@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -134,6 +135,7 @@ export function Sidebar() {
               {profile?.email || ""}
             </p>
           </div>
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="icon"
