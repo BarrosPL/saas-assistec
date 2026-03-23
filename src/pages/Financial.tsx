@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Wallet, Wrench, ShoppingCart } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,6 +140,8 @@ export default function Financial() {
 
   const totalIncome = transactions.filter(t => t.transaction_type === "income").reduce((s, t) => s + Number(t.amount), 0);
   const totalExpense = transactions.filter(t => t.transaction_type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+  const totalServices = transactions.filter(t => t.transaction_type === "income" && t.category === "Serviço").reduce((s, t) => s + Number(t.amount), 0);
+  const totalSales = transactions.filter(t => t.transaction_type === "income" && t.category === "Venda").reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
   const paymentLabel: Record<string, string> = {
@@ -208,6 +210,40 @@ export default function Financial() {
                   <p className="text-sm text-muted-foreground">Saldo</p>
                   <p className="text-2xl font-bold">
                     {isLoading ? <Skeleton className="h-8 w-24" /> : `R$ ${balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Detailed Income Stats */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card className="border-l-4 border-l-primary/60 bg-muted/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Wrench className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Entradas (Serviços / OS)</p>
+                  <p className="text-xl font-bold text-primary">
+                    {isLoading ? <Skeleton className="h-6 w-24" /> : `R$ ${totalServices.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-success/60 bg-muted/30">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
+                  <ShoppingCart className="h-5 w-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Entradas (Vendas)</p>
+                  <p className="text-xl font-bold text-success">
+                    {isLoading ? <Skeleton className="h-6 w-24" /> : `R$ ${totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
                   </p>
                 </div>
               </div>
