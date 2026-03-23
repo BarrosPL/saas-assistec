@@ -25,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, MoreVertical, Smartphone, Calendar, User, ClipboardList, FileText, Pencil, RefreshCw, XCircle, Eye } from "lucide-react";
+import { Plus, Search, MoreVertical, Smartphone, Calendar, User, ClipboardList, FileText, Pencil, RefreshCw, XCircle, Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -37,6 +37,7 @@ import { OrderDetailDialog } from "@/components/service-orders/OrderDetailDialog
 import { EditOrderDialog } from "@/components/service-orders/EditOrderDialog";
 import { ChangeStatusDialog } from "@/components/service-orders/ChangeStatusDialog";
 import { CancelOrderDialog } from "@/components/service-orders/CancelOrderDialog";
+import { DeleteOrderDialog } from "@/components/service-orders/DeleteOrderDialog";
 import { generateOrderPdf } from "@/components/service-orders/generateOrderPdf";
 
 type OrderStatus = Database["public"]["Enums"]["order_status"];
@@ -54,7 +55,7 @@ export default function ServiceOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [dialogType, setDialogType] = useState<"detail" | "edit" | "status" | "cancel" | null>(null);
+  const [dialogType, setDialogType] = useState<"detail" | "edit" | "status" | "cancel" | "delete" | null>(null);
 
   const { data: companySettings } = useCompanySettings();
 
@@ -81,7 +82,7 @@ export default function ServiceOrders() {
     return matchesSearch && matchesStatus;
   });
 
-  const openDialog = (order: any, type: "detail" | "edit" | "status" | "cancel") => {
+  const openDialog = (order: any, type: "detail" | "edit" | "status" | "cancel" | "delete") => {
     setSelectedOrder(order);
     setDialogType(type);
   };
@@ -251,6 +252,12 @@ export default function ServiceOrders() {
                                 <XCircle className="h-4 w-4 mr-2" /> Cancelar OS
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => openDialog(order, "delete")}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Excluir OS
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -275,6 +282,9 @@ export default function ServiceOrders() {
       )}
       {selectedOrder && dialogType === "cancel" && (
         <CancelOrderDialog order={selectedOrder} open onOpenChange={closeDialog} />
+      )}
+      {selectedOrder && dialogType === "delete" && (
+        <DeleteOrderDialog order={selectedOrder} open onOpenChange={closeDialog} />
       )}
     </MainLayout>
   );
