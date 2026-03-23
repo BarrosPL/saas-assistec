@@ -27,14 +27,6 @@ export default function Settings() {
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Pagamentos</span>
             </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Mensagens</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notificações</span>
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="company">
