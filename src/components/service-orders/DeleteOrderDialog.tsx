@@ -26,19 +26,42 @@ export function DeleteOrderDialog({ order, open, onOpenChange }: DeleteOrderDial
 
   const handleDelete = async () => {
     setDeleting(true);
-    const { error } = await supabase
-      .from("service_orders")
-      .delete()
-      .eq("id", order.id);
 
-    if (error) {
-      toast.error("Erro ao excluir OS: " + error.message);
-    } else {
-      toast.success(`${orderNum} excluída com sucesso!`);
-      queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      onOpenChange(false);
+    try {
+      // Deletar o histórico primeiro para evitar erro de Foreign Key
+      const { error: historyError } = await supabase
+        .from("service_order_history")
+        .delete()
+        .eq("service_order_id", order.id);
+
+      if (historyError) {
+        console.error("Erro ao excluir histórico da OS:", historyError);
+        // Continuamos de qualquer forma, pois o Supabase pode já ter CASCADE configurado,
+        // ou o erro será capturado no próximo passo.
+      }
+
+      const { error } = await supabase
+        .from("service_orders")
+        .delete()
+        .eq("id", order.id);
+
+      if (error) {
+        // Se houver erro de constraint de transações financeiras/estoque, será exibido aqui
+        if (error.message.includes("foreign key constraint") || error.code === "23503") {
+          toast.error("Não é possível excluir a OS, pois ela possui transações financeiras ou de estoque vinculadas. Cancele a OS em vez de excluí-la.");
+        } else {
+          toast.error("Erro ao excluir OS: " + error.message);
+        }
+      } else {
+        toast.success(`${orderNum} excluída com sucesso!`);
+        queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+        onOpenChange(false);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao excluir OS");
+    } finally {
+      setDeleting(false);
     }
-    setDeleting(false);
   };
 
   return (
