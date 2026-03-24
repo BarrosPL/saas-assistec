@@ -155,8 +155,13 @@ export default function SaasAdmin() {
         throw new Error(error.message);
       }
 
+      // Edge Function retorna erros no body do response, não no campo error
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       toast.success("Conta criada com sucesso!", {
-        description: `Lojista ${formName} (${formCompany}) cadastrado. Um e-mail de confirmação será enviado.`,
+        description: `Lojista ${formName} (${formCompany}) cadastrado.`,
       });
       setFormName(""); setFormEmail(""); setFormPassword(""); setFormCompany(""); setFormConfirmPassword("");
       queryClient.invalidateQueries({ queryKey: ["saas-tenants"] });
