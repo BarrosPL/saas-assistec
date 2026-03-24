@@ -161,12 +161,13 @@ export default function SaasAdmin() {
         throw new Error(signUpError.message);
       }
 
-      // 4. Cria as configurações da empresa para o novo tenant
+      // 4. Tenta criar as configurações da empresa para o novo tenant
+      //    (pode falhar por RLS, nesse caso será criado no primeiro login do lojista)
       if (signUpData.user) {
         await supabase.from("company_settings").insert({
           user_id: signUpData.user.id,
           company_name: formCompany,
-        }).throwOnError();
+        });
       }
 
       toast.success("Conta criada com sucesso!", {
