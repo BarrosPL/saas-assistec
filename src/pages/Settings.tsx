@@ -11,7 +11,7 @@ import { CompanyTab } from "@/components/settings/CompanyTab";
 export default function Settings() {
   return (
     <MainLayout>
-      <div className="space-y-6 pt-12 lg:pt-0">
+      <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold lg:text-3xl">Configurações</h1>
           <p className="text-muted-foreground">Gerencie as configurações do sistema</p>

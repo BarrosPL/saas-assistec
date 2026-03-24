@@ -148,7 +148,7 @@ export default function NewProduct() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 pt-12 lg:pt-0 max-w-3xl mx-auto">
+      <div className="space-y-6 max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/estoque")}>

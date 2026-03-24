@@ -84,7 +84,7 @@ export default function NewCustomer() {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-2xl space-y-6 pt-12 lg:pt-0">
+      <div className="mx-auto max-w-2xl space-y-6">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />

@@ -155,17 +155,37 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="fixed left-4 top-4 z-50 lg:hidden">
+      {/* Mobile Header */}
+      <header className="fixed top-0 inset-x-0 z-40 flex h-16 items-center justify-between border-b border-sidebar-border bg-sidebar px-4 lg:hidden">
+        <div className="flex items-center gap-3">
+          {companySettings?.logo_url ? (
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden bg-transparent">
+              <img 
+                src={companySettings.logo_url} 
+                alt={companyName} 
+                className="h-full w-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="flex h-8 w-8 items-center justify-center overflow-hidden bg-transparent">
+              <img 
+                src="/favicon.png" 
+                alt={companyName} 
+                className="h-full w-full object-contain"
+              />
+            </div>
+          )}
+          <span className="text-lg font-bold text-sidebar-foreground truncate">{companyName}</span>
+        </div>
         <Button
           variant="outline"
           size="icon"
-          className="h-10 w-10 bg-card shadow-md"
+          className="h-9 w-9 bg-card"
           onClick={() => setMobileOpen(!mobileOpen)}
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-      </div>
+      </header>
 
       {/* Mobile sidebar overlay */}
       {mobileOpen && (

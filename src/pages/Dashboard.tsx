@@ -85,7 +85,7 @@ export default function Dashboard() {
   return (
     <MainLayout>
       <div className="space-y-6 lg:space-y-8">
-        <div className="pt-12 lg:pt-0">
+        <div>
           <h1 className="text-2xl font-bold lg:text-3xl">Dashboard</h1>
           <p className="text-muted-foreground">
             Bem-vindo de volta! Aqui está o resumo do seu negócio.

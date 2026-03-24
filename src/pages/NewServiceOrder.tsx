@@ -129,7 +129,7 @@ export default function NewServiceOrder() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 pt-12 lg:pt-0 max-w-4xl mx-auto">
+      <div className="space-y-6 max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/ordens")}>
