@@ -29,6 +29,7 @@ export default function Dashboard() {
           .from("service_orders")
           .select("service_value")
           .gte("created_at", today)
+          .neq("status", "cancelled")
       ]);
 
       if (transactionsResponse.error) throw transactionsResponse.error;
@@ -73,7 +74,8 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from("service_orders")
         .select("id, service_value")
-        .gte("created_at", monthStart);
+        .gte("created_at", monthStart)
+        .neq("status", "cancelled");
       if (error) throw error;
       return {
         total: data.length,

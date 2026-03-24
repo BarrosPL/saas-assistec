@@ -49,6 +49,7 @@ export default function Financial() {
         supabase
           .from("service_orders")
           .select("*")
+          .neq("status", "cancelled")
           .not("service_value", "is", null)
           .order("created_at", { ascending: false })
           .limit(50)
@@ -93,6 +94,7 @@ export default function Financial() {
         supabase
           .from("service_orders")
           .select("service_value, created_at")
+          .neq("status", "cancelled")
           .gte("created_at", sixMonthsAgo)
       ]);
 

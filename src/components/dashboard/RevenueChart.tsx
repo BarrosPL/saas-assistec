@@ -21,6 +21,7 @@ export function RevenueChart() {
         supabase
           .from("service_orders")
           .select("service_value, created_at")
+          .neq("status", "cancelled")
           .gte("created_at", sixMonthsAgo),
       ]);
 

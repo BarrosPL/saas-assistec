@@ -91,6 +91,7 @@ export default function Reports() {
       let soQuery = supabase
         .from("service_orders")
         .select("id, order_number, service_value, created_at")
+        .neq("status", "cancelled")
         .not("service_value", "is", null);
 
       if (fromISO) soQuery = soQuery.gte("created_at", fromISO);
@@ -154,7 +155,7 @@ export default function Reports() {
         supabase.from("customers").select("id", { count: "exact", head: true }).gte("created_at", currMonthFrom).lte("created_at", currMonthTo),
         supabase.from("customers").select("id", { count: "exact", head: true }).gte("created_at", prevMonthFrom).lte("created_at", prevMonthTo),
         supabase.from("financial_transactions").select("amount, transaction_type").gte("transaction_date", currMonthFrom.split("T")[0]).lte("transaction_date", currMonthTo.split("T")[0]),
-        supabase.from("service_orders").select("service_value").gte("created_at", currMonthFrom).lte("created_at", currMonthTo).not("service_value", "is", null),
+        supabase.from("service_orders").select("service_value").neq("status", "cancelled").gte("created_at", currMonthFrom).lte("created_at", currMonthTo).not("service_value", "is", null),
       ]);
 
       const income = (txCurr.data ?? []).filter(t => t.transaction_type === "income").reduce((s, t) => s + Number(t.amount), 0)
