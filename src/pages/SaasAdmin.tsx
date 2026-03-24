@@ -137,21 +137,40 @@ export default function SaasAdmin() {
     }
     setIsCreating(true);
     try {
-      // 1. Invoca a função RPC para criar o usuário e os perfis no backend 
-      //    bypassando as regras de auth do cliente e NÃO afetando a sessão local
-      const { data, error } = await supabase.rpc("create_tenant_admin", {
-        admin_email: formEmail,
-        admin_password: formPassword,
-        admin_name: formName,
-        admin_company: formCompany
+      // 1. Salva a sessão atual do admin
+      const { data: { session: adminSession } } = await supabase.auth.getSession();
+
+      // 2. Cria o novo usuário via Auth API (isso envia o e-mail de confirmação)
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: formEmail,
+        password: formPassword,
+        options: {
+          data: { full_name: formName }
+        }
       });
 
-      if (error) {
-        throw new Error(error.message);
+      // 3. Restaura imediatamente a sessão do admin
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
+      }
+
+      if (signUpError) {
+        throw new Error(signUpError.message);
+      }
+
+      // 4. Cria as configurações da empresa para o novo tenant
+      if (signUpData.user) {
+        await supabase.from("company_settings").insert({
+          user_id: signUpData.user.id,
+          company_name: formCompany,
+        }).throwOnError();
       }
 
       toast.success("Conta criada com sucesso!", {
-        description: `Lojista ${formName} (${formCompany}) cadastrado.`,
+        description: `Lojista ${formName} (${formCompany}) cadastrado. Um e-mail de confirmação foi enviado para ${formEmail}.`,
       });
       setFormName(""); setFormEmail(""); setFormPassword(""); setFormCompany(""); setFormConfirmPassword("");
       queryClient.invalidateQueries({ queryKey: ["saas-tenants"] });
