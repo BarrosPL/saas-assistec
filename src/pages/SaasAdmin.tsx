@@ -137,27 +137,17 @@ export default function SaasAdmin() {
     }
     setIsCreating(true);
     try {
-      // 1. Invoca a Edge Function para criar o usuário e os perfis no backend 
+      // 1. Invoca a função RPC para criar o usuário e os perfis no backend 
       //    bypassando as regras de auth do cliente e NÃO afetando a sessão local
-      const { data, error } = await supabase.functions.invoke('saas-admin', {
-        body: {
-          action: 'create_tenant',
-          payload: {
-            email: formEmail,
-            password: formPassword,
-            fullName: formName,
-            companyName: formCompany
-          }
-        }
+      const { data, error } = await supabase.rpc("create_tenant_admin", {
+        admin_email: formEmail,
+        admin_password: formPassword,
+        admin_name: formName,
+        admin_company: formCompany
       });
 
       if (error) {
         throw new Error(error.message);
-      }
-
-      // Edge Function retorna erros no body do response, não no campo error
-      if (data?.error) {
-        throw new Error(data.error);
       }
 
       toast.success("Conta criada com sucesso!", {
