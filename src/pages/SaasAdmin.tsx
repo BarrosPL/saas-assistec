@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,7 +51,11 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  BarChart,
+  Bar,
+  Legend
 } from "recharts";
+import { NewTransactionDialog } from "@/components/financial/NewTransactionDialog";
 
 type Tab = "overview" | "tenants" | "create" | "financeiro";
 
@@ -61,6 +65,7 @@ export default function SaasAdmin() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [confirmBan, setConfirmBan] = useState<{ userId: string; name: string; isBanned: boolean } | null>(null);
+  const [newTxType, setNewTxType] = useState<"income" | "expense" | null>(null);
 
   // Form states
   const [formName, setFormName] = useState("");
@@ -108,17 +113,44 @@ export default function SaasAdmin() {
     },
   });
 
-  // Financial query (transactions across all users)
+  // Dados do Gráfico de Crescimento de Usuários
+  const userGrowthData = useMemo(() => {
+    if (!tenants) return [];
+    
+    // Sort tenants ascending by created_at first
+    const sortedTenants = [...tenants].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    
+    const grouped = sortedTenants.reduce((acc: Record<string, number>, tenant) => {
+      const month = format(new Date(tenant.created_at), "MMM/yyyy", { locale: ptBR });
+      acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {});
+
+    let total = 0;
+    return Object.entries(grouped).map(([month, count]) => {
+      total += count;
+      return {
+        name: month,
+        "Novos Lojistas": count,
+        "Total Acumulado": total
+      };
+    });
+  }, [tenants]);
+
+  // Financial query (transactions only for the SaaS Admin)
   const { data: transactions, isLoading: txLoading } = useQuery({
     queryKey: ["saas-financial"],
     queryFn: async () => {
+      if (!profile?.id) return [];
       const { data } = await supabase
         .from("financial_transactions")
-        .select("amount, transaction_type, transaction_date, description, category")
+        .select("id, amount, transaction_type, transaction_date, description, category")
+        .eq("user_id", profile.id)
         .order("transaction_date", { ascending: false })
         .limit(50);
       return data || [];
     },
+    enabled: !!profile?.id,
   });
 
   // Create tenant mutation - salva sessão do admin antes e restaura depois
@@ -282,7 +314,7 @@ export default function SaasAdmin() {
             <>
               <div>
                 <h1 className="text-2xl font-bold">Visão Geral do Sistema</h1>
-                <p className="text-muted-foreground">Métricas globais de toda a plataforma.</p>
+                <p className="text-muted-foreground">Métricas globais de toda a plataforma de SaaS.</p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -297,30 +329,34 @@ export default function SaasAdmin() {
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Ordens de Serviço</CardTitle>
-                    <Smartphone className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Faturamento SaaS (Admin)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-emerald-500" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{metrics?.totalOrders ?? "—"}</div>
+                    <div className="text-2xl font-bold text-emerald-600">
+                      R$ {totalIncome.toLocaleString("pt-BR")}
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Vendas Realizadas</CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Despesas SaaS (Admin)</CardTitle>
+                    <DollarSign className="h-4 w-4 text-red-500" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{metrics?.totalSales ?? "—"}</div>
+                    <div className="text-2xl font-bold text-red-600">
+                      R$ {totalExpense.toLocaleString("pt-BR")}
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Volume Financeiro</CardTitle>
+                    <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">
-                      {metrics ? `R$ ${metrics.totalRevenue.toLocaleString("pt-BR")}` : "—"}
+                    <div className={`text-2xl font-bold ${(totalIncome - totalExpense) >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                      R$ {(totalIncome - totalExpense).toLocaleString("pt-BR")}
                     </div>
                   </CardContent>
                 </Card>
@@ -328,41 +364,34 @@ export default function SaasAdmin() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Últimas Transações do Sistema</CardTitle>
+                  <CardTitle>Crescimento de Lojistas</CardTitle>
+                  <CardDescription>Evolução da base de usuários ao longo do tempo</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Categoria</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(transactions || []).slice(0, 8).map((t, i) => (
-                          <TableRow key={i}>
-                            <TableCell>{t.description}</TableCell>
-                            <TableCell>{t.category}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className={t.transaction_type === "income" ? "text-emerald-500" : "text-red-500"}>
-                                {t.transaction_type === "income" ? "Receita" : "Despesa"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className={`text-right font-medium ${t.transaction_type === "income" ? "text-emerald-500" : "text-red-500"}`}>
-                              {t.transaction_type === "income" ? "+" : "-"}R$ {Number(t.amount).toLocaleString("pt-BR")}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {(!transactions || transactions.length === 0) && (
-                          <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhuma transação encontrada.</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
+                  <div className="h-80">
+                    {userGrowthData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={userGrowthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: "hsl(var(--card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                          />
+                          <Legend />
+                          <Area type="monotone" dataKey="Total Acumulado" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorTotal)" />
+                          <Area type="monotone" dataKey="Novos Lojistas" stroke="hsl(var(--success))" fillOpacity={0} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted-foreground">Sem dados suficientes.</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -542,9 +571,21 @@ export default function SaasAdmin() {
           {/* ====== FINANCEIRO ====== */}
           {activeTab === "financeiro" && (
             <>
-              <div>
-                <h1 className="text-2xl font-bold">Financeiro Global</h1>
-                <p className="text-muted-foreground">Visão consolidada de todas as transações do sistema.</p>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold">Financeiro do SaaS</h1>
+                  <p className="text-muted-foreground">Controle exclusivo de receitas (assinaturas) e custos da sua empresa.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="gap-2 text-red-500 border-red-500/20 hover:bg-red-500/10" onClick={() => setNewTxType("expense")}>
+                    <TrendingUp className="h-4 w-4 rotate-180" />
+                    Nova Despesa
+                  </Button>
+                  <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => setNewTxType("income")}>
+                    <TrendingUp className="h-4 w-4" />
+                    Nova Receita
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
@@ -585,7 +626,7 @@ export default function SaasAdmin() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Histórico de Transações</CardTitle>
+                  <CardTitle>Histórico de Transações do SaaS</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
@@ -607,16 +648,18 @@ export default function SaasAdmin() {
                         </TableRow>
                       ) : transactions?.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma transação encontrada.</TableCell>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma transação encontrada no seu financeiro.</TableCell>
                         </TableRow>
                       ) : (
                         transactions?.map((t, i) => (
                           <TableRow key={i}>
                             <TableCell className="text-muted-foreground">{format(new Date(t.transaction_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                             <TableCell>{t.description}</TableCell>
-                            <TableCell>{t.category}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={t.transaction_type === "income" ? "text-emerald-500" : "text-red-500"}>
+                              <Badge variant="secondary">{t.category}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={t.transaction_type === "income" ? "text-emerald-500 bg-emerald-500/10" : "text-red-500 bg-red-500/10"}>
                                 {t.transaction_type === "income" ? "Receita" : "Despesa"}
                               </Badge>
                             </TableCell>
@@ -663,6 +706,20 @@ export default function SaasAdmin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Nova Transação do Admin SaaS */}
+      {newTxType && (
+        <NewTransactionDialog
+          type={newTxType}
+          open={!!newTxType}
+          onOpenChange={(open) => { if (!open) setNewTxType(null); }}
+          onSuccess={() => {
+            setNewTxType(null);
+            queryClient.invalidateQueries({ queryKey: ["saas-financial"] });
+            queryClient.invalidateQueries({ queryKey: ["saas-metrics"] });
+          }}
+        />
+      )}
     </div>
   );
 }
