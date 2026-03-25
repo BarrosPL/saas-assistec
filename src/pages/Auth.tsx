@@ -160,7 +160,7 @@ export default function Auth() {
                 <Input
                   id="login-email"
                   type="email"
-                  placeholder="seu@email.com"
+                  placeholder="Digite o seu E-mail"
                   className="pl-9 bg-background/50 backdrop-blur-sm"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
