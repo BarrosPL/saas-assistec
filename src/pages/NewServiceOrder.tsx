@@ -16,9 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Save, Wrench, Smartphone, FileText } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import { DeviceChecklist } from "@/components/service-orders/DeviceChecklist";
 import { CustomerSearch } from "@/components/service-orders/CustomerSearch";
 import { SignatureCanvas } from "@/components/service-orders/SignatureCanvas";
+import { PatternLockCanvas } from "@/components/service-orders/PatternLockCanvas";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +30,7 @@ const formSchema = z.object({
   deviceBrand: z.string().min(1, "Marca é obrigatória").max(100),
   deviceModel: z.string().min(1, "Modelo é obrigatório").max(100),
   deviceImei: z.string().max(20).optional(),
+  devicePassword: z.string().optional(),
   devicePoweredOn: z.boolean({
     required_error: "Indique se o aparelho está ligando",
     invalid_type_error: "Indique se o aparelho está ligando",
@@ -54,6 +57,8 @@ export default function NewServiceOrder() {
   const [deviceBrand, setDeviceBrand] = useState("");
   const [deviceModel, setDeviceModel] = useState("");
   const [deviceImei, setDeviceImei] = useState("");
+  const [devicePassword, setDevicePassword] = useState("");
+  const [isPattern, setIsPattern] = useState(false);
   const [reportedIssue, setReportedIssue] = useState("");
   const [technician, setTechnician] = useState("");
   const [serviceValue, setServiceValue] = useState("");
@@ -74,6 +79,7 @@ export default function NewServiceOrder() {
       deviceBrand,
       deviceModel,
       deviceImei: deviceImei || undefined,
+      devicePassword: devicePassword || undefined,
       devicePoweredOn,
       reportedIssue,
       technician: technician || undefined,
@@ -101,6 +107,7 @@ export default function NewServiceOrder() {
       device_brand: deviceBrand.trim(),
       device_model: deviceModel.trim(),
       device_imei: deviceImei.trim() || null,
+      device_password: devicePassword.trim() || null,
       reported_issue: reportedIssue.trim(),
       technician: technician.trim() || null,
       service_value: serviceValue ? parseFloat(serviceValue) : 0,
@@ -199,15 +206,48 @@ export default function NewServiceOrder() {
                   )}
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>IMEI (opcional)</Label>
-                <Input
-                  id="imei"
-                  placeholder="Número IMEI do aparelho"
-                  value={deviceImei}
-                  onChange={(e) => setDeviceImei(e.target.value)}
-                  maxLength={20}
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>IMEI (opcional)</Label>
+                  <Input
+                    id="imei"
+                    placeholder="Número IMEI do aparelho"
+                    value={deviceImei}
+                    onChange={(e) => setDeviceImei(e.target.value)}
+                    maxLength={20}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Senha do Aparelho (opcional)</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="is-pattern" className="text-xs font-normal text-muted-foreground cursor-pointer">
+                        Desenhar padrão?
+                      </Label>
+                      <Switch
+                        id="is-pattern"
+                        checked={isPattern}
+                        onCheckedChange={(c) => {
+                          setIsPattern(c);
+                          setDevicePassword("");
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {isPattern ? (
+                    <PatternLockCanvas
+                      value={devicePassword}
+                      onChange={(val) => setDevicePassword(val || "")}
+                    />
+                  ) : (
+                    <Input
+                      id="password"
+                      placeholder="Ex: 1234, Desenho Z, etc."
+                      value={devicePassword}
+                      onChange={(e) => setDevicePassword(e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
 
               <div className="space-y-2">

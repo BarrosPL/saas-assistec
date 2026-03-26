@@ -95,6 +95,12 @@ export function generateOrderPdf(order: any, company?: CompanyInfo | null) {
         <tr><td>Marca</td><td>${order.device_brand}</td></tr>
         <tr><td>Modelo</td><td>${order.device_model}</td></tr>
         ${order.device_imei ? `<tr><td>IMEI</td><td>${order.device_imei}</td></tr>` : ""}
+        ${order.device_password ? `<tr><td style="vertical-align:top;">Senha do Aparelho</td><td>
+          ${order.device_password.startsWith("data:image")
+            ? `<img src="${order.device_password}" style="max-height:80px;border:1px solid #ddd;border-radius:4px;background:#f9f9f9;">`
+            : order.device_password
+          }
+        </td></tr>` : ""}
         <tr><td>Aparelho Ligando?</td><td>${order.device_powered_on === true ? "Sim" : order.device_powered_on === false ? "Não" : "Não informado"}</td></tr>
       </table>
 

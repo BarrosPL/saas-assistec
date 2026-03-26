@@ -100,6 +100,18 @@ export function OrderDetailDialog({ order, open, onOpenChange }: OrderDetailDial
                 {order.device_imei && (
                   <div className="col-span-2"><span className="text-muted-foreground">IMEI:</span> {order.device_imei}</div>
                 )}
+                {order.device_password && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Senha do Aparelho:</span>{" "}
+                    {order.device_password.startsWith("data:image") ? (
+                      <div className="mt-2 bg-muted/30 p-2 rounded-md inline-block border">
+                        <img src={order.device_password} alt="Padrão" className="h-20 object-contain" />
+                      </div>
+                    ) : (
+                      order.device_password
+                    )}
+                  </div>
+                )}
                 <div>
                   <span className="text-muted-foreground">Ligando:</span>{" "}
                   {order.device_powered_on === true ? "Sim" : order.device_powered_on === false ? "Não" : "Não informado"}

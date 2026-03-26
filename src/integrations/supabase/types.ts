@@ -324,6 +324,7 @@ export type Database = {
           device_condition: Json | null
           device_imei: string | null
           device_model: string
+          device_password: string | null
           device_powered_on: boolean | null
           device_received_at: string | null
           estimated_deadline: string | null
@@ -346,6 +347,7 @@ export type Database = {
           device_condition?: Json | null
           device_imei?: string | null
           device_model: string
+          device_password?: string | null
           device_powered_on?: boolean | null
           device_received_at?: string | null
           estimated_deadline?: string | null
@@ -368,6 +370,7 @@ export type Database = {
           device_condition?: Json | null
           device_imei?: string | null
           device_model?: string
+          device_password?: string | null
           device_powered_on?: boolean | null
           device_received_at?: string | null
           estimated_deadline?: string | null

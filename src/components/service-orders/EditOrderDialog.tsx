@@ -23,7 +23,9 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { DeviceChecklist } from "./DeviceChecklist";
 import { SignatureCanvas } from "./SignatureCanvas";
+import { PatternLockCanvas } from "./PatternLockCanvas";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 
 const popularBrands = [
   "Apple", "Samsung", "Motorola", "Xiaomi", "LG", "Huawei", "Nokia", "Realme", "ASUS", "Outro",
@@ -40,6 +42,8 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
   const [deviceBrand, setDeviceBrand] = useState(order.device_brand);
   const [deviceModel, setDeviceModel] = useState(order.device_model);
   const [deviceImei, setDeviceImei] = useState(order.device_imei || "");
+  const [devicePassword, setDevicePassword] = useState(order.device_password || "");
+  const [isPattern, setIsPattern] = useState(order.device_password?.startsWith("data:image") || false);
   const [reportedIssue, setReportedIssue] = useState(order.reported_issue);
   const [technician, setTechnician] = useState(order.technician || "");
   const [serviceValue, setServiceValue] = useState(order.service_value?.toString() || "");
@@ -67,6 +71,7 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
         device_brand: deviceBrand.trim(),
         device_model: deviceModel.trim(),
         device_imei: deviceImei.trim() || null,
+        device_password: devicePassword.trim() || null,
         reported_issue: reportedIssue.trim(),
         technician: technician.trim() || null,
         service_value: serviceValue ? parseFloat(serviceValue) : 0,
@@ -115,9 +120,34 @@ export function EditOrderDialog({ order, open, onOpenChange }: EditOrderDialogPr
                 <Input value={deviceModel} onChange={(e) => setDeviceModel(e.target.value)} maxLength={100} />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>IMEI</Label>
-              <Input value={deviceImei} onChange={(e) => setDeviceImei(e.target.value)} maxLength={20} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>IMEI</Label>
+                <Input value={deviceImei} onChange={(e) => setDeviceImei(e.target.value)} maxLength={20} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Senha do Aparelho (opcional)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="edit-is-pattern" className="text-xs font-normal text-muted-foreground cursor-pointer">
+                      Desenhar padrão?
+                    </Label>
+                    <Switch 
+                      id="edit-is-pattern" 
+                      checked={isPattern} 
+                      onCheckedChange={(c) => {
+                        setIsPattern(c);
+                        setDevicePassword("");
+                      }} 
+                    />
+                  </div>
+                </div>
+                {isPattern ? (
+                  <PatternLockCanvas value={devicePassword} onChange={(val) => setDevicePassword(val || "")} />
+                ) : (
+                  <Input value={devicePassword} onChange={(e) => setDevicePassword(e.target.value)} placeholder="Ex: 1234, Desenho Z..." />
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Aparelho Ligando?</Label>
