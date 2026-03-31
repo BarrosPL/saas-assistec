@@ -101,6 +101,15 @@ export default function SaasAdmin() {
     },
   });
 
+  // 2. Todos os Perfis (para mapeamento interno e segurança)
+  const { data: allProfiles } = useQuery({
+    queryKey: ["saas-all-profiles-map"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("user_id, is_super_admin");
+      return data || [];
+    },
+  });
+
   // Tenants: todos os profiles que NÃO são super admin
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ["saas-tenants"],
@@ -162,10 +171,16 @@ export default function SaasAdmin() {
   });
 
   const usageByTenant = useMemo(() => {
-    if (!usageLogs || !tenants) return [];
+    if (!usageLogs || !tenants || !allProfiles) return [];
     
-    // 1. Primeiro mapeamos os que TEM perfil (Lojistas conhecidos)
+    // Criar um mapa de quem é super admin para exclusão rápida
+    const adminMap = new Set(allProfiles.filter(p => p.is_super_admin === true).map(p => p.user_id));
+    
+    // 1. Processar lojistas conhecidos (não administradores)
     const result = tenants.map(t => {
+      // Se por algum motivo um admin estiver na lista de lojistas, pulamos (segurança extra)
+      if (adminMap.has(t.user_id)) return null;
+
       const userLogs = usageLogs.filter((l: any) => l.user_id === t.user_id);
       const totalMinutes = userLogs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
       
@@ -179,19 +194,23 @@ export default function SaasAdmin() {
         formattedTime,
         history: userLogs.sort((a: any, b: any) => new Date(a.usage_date).getTime() - new Date(b.usage_date).getTime())
       };
-    });
+    }).filter(Boolean) as any[];
 
-    // 2. Agora procuramos por usuários logs que NÃO estão nos tenants (Perfis não encontrados)
-    const knownUserIds = new Set(tenants.map(t => t.user_id));
-    const logsFromUnknownUsers = usageLogs.filter((l: any) => !knownUserIds.has(l.user_id));
+    // 2. Identificar atividade de quem NÃO tem perfil mas NÃO é admin conhecido
+    const knownUserIds = new Set(allProfiles.map(p => p.user_id));
+    const logsFromNewUsers = usageLogs.filter((l: any) => {
+      // Inclui se: não tem perfil OU (tem perfil mas não é admin)
+      const isAdmin = adminMap.has(l.user_id);
+      return !isAdmin && !knownUserIds.has(l.user_id);
+    });
     
-    const unknownGroupedByUserId = logsFromUnknownUsers.reduce((acc: Record<string, any[]>, log: any) => {
+    const unknownGrouped = logsFromNewUsers.reduce((acc: Record<string, any[]>, log: any) => {
       if (!acc[log.user_id]) acc[log.user_id] = [];
       acc[log.user_id].push(log);
       return acc;
     }, {});
 
-    Object.entries(unknownGroupedByUserId).forEach(([userId, logs]: [string, any]) => {
+    Object.entries(unknownGrouped).forEach(([userId, logs]: [string, any]) => {
       const totalMinutes = logs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
       const hours = Math.floor(totalMinutes / 60);
       const minutes = Math.floor(totalMinutes % 60);
@@ -200,27 +219,32 @@ export default function SaasAdmin() {
       result.push({
         id: `unknown-${userId}`,
         user_id: userId,
-        full_name: `User s/ Perfil (${userId.substring(0, 5)})`,
-        email: "Não identificado",
+        full_name: `Lojista s/ Perfil (${userId.substring(0, 5)})`,
+        email: "Sincronizando...",
         phone: null,
         is_super_admin: false,
         is_banned: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: null,
+        updated_at: null,
         totalMinutes,
         formattedTime,
         history: logs.sort((a: any, b: any) => new Date(a.usage_date).getTime() - new Date(b.usage_date).getTime())
-      } as any);
+      });
     });
 
     return result.sort((a, b) => b.totalMinutes - a.totalMinutes);
-  }, [usageLogs, tenants]);
+  }, [usageLogs, tenants, allProfiles]);
 
   // Dados do Gráfico de Tendência de Uso (Agregado por dia)
   const usageTrendData = useMemo(() => {
-    if (!usageLogs) return [];
+    if (!usageLogs || !allProfiles) return [];
     
+    const adminMap = new Set(allProfiles.filter(p => p.is_super_admin === true).map(p => p.user_id));
+
     const grouped = usageLogs.reduce((acc: Record<string, number>, log: any) => {
+      // Pula logs de administradores
+      if (adminMap.has(log.user_id)) return acc;
+
       // Usar parseISO para evitar que o fuso horário mude a data para o dia anterior
       const date = format(parseISO(log.usage_date), "dd/MM", { locale: ptBR });
       acc[date] = (acc[date] || 0) + Number(log.duration_minutes || 0);
@@ -612,10 +636,7 @@ export default function SaasAdmin() {
                         usageByTenant.map((t) => (
                           <TableRow key={t.id}>
                             <TableCell className="font-medium">
-                              <div>
-                                {t.full_name}
-                                <div className="text-[10px] text-muted-foreground font-mono">UID: {t.user_id}</div>
-                              </div>
+                              {t.full_name}
                             </TableCell>
                             <TableCell>{t.email}</TableCell>
                             <TableCell>{t.created_at ? format(new Date(t.created_at), "dd/MM/yyyy", { locale: ptBR }) : "—"}</TableCell>
