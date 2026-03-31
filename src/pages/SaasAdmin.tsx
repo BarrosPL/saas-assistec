@@ -87,7 +87,7 @@ export default function SaasAdmin() {
     queryKey: ["saas-metrics"],
     queryFn: async () => {
       const [profiles, orders, sales] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }).or("is_super_admin.is.null,is_super_admin.eq.false"),
+        supabase.from("profiles").select("id", { count: "exact", head: true }), // Carrega TODOS os perfis sem exceção
         supabase.from("service_orders").select("id", { count: "exact", head: true }),
         supabase.from("sales").select("total").neq("total", 0),
       ]);
@@ -105,12 +105,19 @@ export default function SaasAdmin() {
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ["saas-tenants"],
     queryFn: async () => {
+      console.log("[SaasAdmin] Diagnostic: Buscando todos os perfis (incluindo admins)...");
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .or("is_super_admin.is.null,is_super_admin.eq.false")
         .order("created_at", { ascending: false });
-      if (error) console.error("Tenants query error:", error);
+      
+      if (error) {
+        console.error("Tenants query error:", error);
+      }
+      console.log(`[SaasAdmin] Total de perfis carregados: ${data?.length || 0}`);
+      if (data) {
+        console.log("[SaasAdmin] IDs dos perfis:", data.map(p => p.user_id));
+      }
       return data || [];
     },
   });
@@ -143,19 +150,24 @@ export default function SaasAdmin() {
   const { data: usageLogs } = useQuery({
     queryKey: ["saas-usage-logs"],
     queryFn: async () => {
+      console.log("[SaasAdmin] Buscando logs de uso globais...");
       const { data, error } = await supabase
         .from("user_usage_logs" as any)
         .select("*");
-      if (error) console.error("Usage logs query error:", error);
+      if (error) {
+        console.error("Usage logs query error:", error);
+      }
+      console.log(`[SaasAdmin] ${data?.length || 0} logs de uso recebidos.`);
       return data || [];
     },
-    refetchInterval: 30000, // Atualiza automaticamente os dados a cada 30 segundos!
+    refetchInterval: 30000, 
   });
 
   const usageByTenant = useMemo(() => {
     if (!usageLogs || !tenants) return [];
     
-    return tenants.map(t => {
+    // 1. Primeiro mapeamos os que TEM perfil (Lojistas conhecidos)
+    const result = tenants.map(t => {
       const userLogs = usageLogs.filter((l: any) => l.user_id === t.user_id);
       const totalMinutes = userLogs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
       
@@ -169,7 +181,41 @@ export default function SaasAdmin() {
         formattedTime,
         history: userLogs.sort((a: any, b: any) => new Date(a.usage_date).getTime() - new Date(b.usage_date).getTime())
       };
-    }).sort((a, b) => b.totalMinutes - a.totalMinutes);
+    });
+
+    // 2. Agora procuramos por usuários logs que NÃO estão nos tenants (Perfis não encontrados)
+    const knownUserIds = new Set(tenants.map(t => t.user_id));
+    const logsFromUnknownUsers = usageLogs.filter((l: any) => !knownUserIds.has(l.user_id));
+    
+    const unknownGroupedByUserId = logsFromUnknownUsers.reduce((acc: Record<string, any[]>, log: any) => {
+      if (!acc[log.user_id]) acc[log.user_id] = [];
+      acc[log.user_id].push(log);
+      return acc;
+    }, {});
+
+    Object.entries(unknownGroupedByUserId).forEach(([userId, logs]: [string, any]) => {
+      const totalMinutes = logs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = Math.floor(totalMinutes % 60);
+      const formattedTime = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+      result.push({
+        id: `unknown-${userId}`,
+        user_id: userId,
+        full_name: `User s/ Perfil (${userId.substring(0, 5)})`,
+        email: "Não identificado",
+        phone: null,
+        is_super_admin: false,
+        is_banned: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        totalMinutes,
+        formattedTime,
+        history: logs.sort((a: any, b: any) => new Date(a.usage_date).getTime() - new Date(b.usage_date).getTime())
+      } as any);
+    });
+
+    return result.sort((a, b) => b.totalMinutes - a.totalMinutes);
   }, [usageLogs, tenants]);
 
   // Dados do Gráfico de Tendência de Uso (Agregado por dia)
@@ -565,10 +611,15 @@ export default function SaasAdmin() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        tenants?.map((t) => (
-                          <TableRow key={t.id}>
-                            <TableCell className="font-medium">{t.full_name}</TableCell>
-                            <TableCell>{t.email}</TableCell>
+                          tenants?.map((t) => (
+                            <TableRow key={t.id}>
+                              <TableCell className="font-medium">
+                                <div>
+                                  {t.full_name}
+                                  <div className="text-[10px] text-muted-foreground font-mono">UID: {t.user_id}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>{t.email}</TableCell>
                             <TableCell>{format(new Date(t.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="bg-primary/5">{usageByTenant.find(u => u.id === t.id)?.formattedTime || "0m"}</Badge>
