@@ -42,7 +42,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parseISO, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   AreaChart,
@@ -177,7 +177,8 @@ export default function SaasAdmin() {
     if (!usageLogs) return [];
     
     const grouped = usageLogs.reduce((acc: Record<string, number>, log: any) => {
-      const date = format(new Date(log.usage_date), "dd/MM", { locale: ptBR });
+      // Usar parseISO para evitar que o fuso horário mude a data para o dia anterior
+      const date = format(parseISO(log.usage_date), "dd/MM", { locale: ptBR });
       acc[date] = (acc[date] || 0) + Number(log.duration_minutes || 0);
       return acc;
     }, {});
@@ -790,7 +791,7 @@ export default function SaasAdmin() {
                       ) : (
                         transactions?.map((t, i) => (
                           <TableRow key={i}>
-                            <TableCell className="text-muted-foreground">{format(new Date(t.transaction_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                            <TableCell className="text-muted-foreground">{format(parseISO(t.transaction_date), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                             <TableCell>{t.description}</TableCell>
                             <TableCell>
                               <Badge variant="secondary">{t.category}</Badge>
@@ -829,8 +830,8 @@ export default function SaasAdmin() {
             {viewUsage && usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.length ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.map((h: any) => ({
-                  date: format(new Date(h.usage_date), "dd/MM"),
-                  minutes: h.duration_minutes
+                  date: format(parseISO(h.usage_date), "dd/MM"),
+                  minutes: Number(h.duration_minutes || 0)
                 }))}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
