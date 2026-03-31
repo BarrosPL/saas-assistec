@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -65,6 +66,7 @@ export default function SaasAdmin() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [confirmBan, setConfirmBan] = useState<{ userId: string; name: string; isBanned: boolean } | null>(null);
+  const [viewUsage, setViewUsage] = useState<{ userId: string; name: string } | null>(null);
   const [newTxType, setNewTxType] = useState<"income" | "expense" | null>(null);
 
   // Form states
@@ -136,6 +138,59 @@ export default function SaasAdmin() {
       };
     });
   }, [tenants]);
+
+  // Usage logs query
+  const { data: usageLogs } = useQuery({
+    queryKey: ["saas-usage-logs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_usage_logs" as any)
+        .select("*");
+      if (error) console.error("Usage logs query error:", error);
+      return data || [];
+    },
+    refetchInterval: 30000, // Atualiza automaticamente os dados a cada 30 segundos!
+  });
+
+  const usageByTenant = useMemo(() => {
+    if (!usageLogs || !tenants) return [];
+    
+    return tenants.map(t => {
+      const userLogs = usageLogs.filter((l: any) => l.user_id === t.user_id);
+      const totalMinutes = userLogs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
+      
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = Math.floor(totalMinutes % 60);
+      const formattedTime = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+      return {
+        ...t,
+        totalMinutes,
+        formattedTime,
+        history: userLogs.sort((a: any, b: any) => new Date(a.usage_date).getTime() - new Date(b.usage_date).getTime())
+      };
+    }).sort((a, b) => b.totalMinutes - a.totalMinutes);
+  }, [usageLogs, tenants]);
+
+  // Dados do Gráfico de Tendência de Uso (Agregado por dia)
+  const usageTrendData = useMemo(() => {
+    if (!usageLogs) return [];
+    
+    const grouped = usageLogs.reduce((acc: Record<string, number>, log: any) => {
+      const date = format(new Date(log.usage_date), "dd/MM", { locale: ptBR });
+      acc[date] = (acc[date] || 0) + Number(log.duration_minutes || 0);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([date, minutes]) => ({ date, minutes }))
+      .sort((a, b) => {
+        const [dayA, monthA] = a.date.split("/").map(Number);
+        const [dayB, monthB] = b.date.split("/").map(Number);
+        return monthA !== monthB ? monthA - monthB : dayA - dayB;
+      })
+      .slice(-15); // Últimos 15 dias
+  }, [usageLogs]);
 
   // Financial query (transactions only for the SaaS Admin)
   const { data: transactions, isLoading: txLoading } = useQuery({
@@ -362,39 +417,110 @@ export default function SaasAdmin() {
                 </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Crescimento de Lojistas</CardTitle>
-                  <CardDescription>Evolução da base de usuários ao longo do tempo</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    {userGrowthData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={userGrowthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                          <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: "hsl(var(--card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                          />
-                          <Legend />
-                          <Area type="monotone" dataKey="Total Acumulado" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorTotal)" />
-                          <Area type="monotone" dataKey="Novos Lojistas" stroke="hsl(var(--success))" fillOpacity={0} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">Sem dados suficientes.</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="grid gap-4 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Crescimento e Uso</CardTitle>
+                      <CardDescription>Evolução da plataforma e engajamento</CardDescription>
+                    </div>
+                    <Tabs defaultValue="growth" className="w-[200px]">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="growth" className="text-xs">Lojistas</TabsTrigger>
+                        <TabsTrigger value="usage" className="text-xs">Tempo de Uso</TabsTrigger>
+                      </TabsList>
+                      {/* Note: We are using a simplified approach inside cards to keep it clean */}
+                    </Tabs>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="growth">
+                      <TabsContent value="growth" className="mt-0">
+                        <div className="h-80">
+                          {userGrowthData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={userGrowthData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                <XAxis dataKey="name" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                                <YAxis tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                                />
+                                <Legend />
+                                <Area type="monotone" name="Total Acumulado" dataKey="Total Acumulado" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorTotal)" />
+                                <Area type="monotone" name="Novos Lojistas" dataKey="Novos Lojistas" stroke="hsl(var(--success))" fillOpacity={0} />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">Sem dados suficientes.</div>
+                          )}
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="usage" className="mt-0">
+                        <div className="h-80">
+                          {usageTrendData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={usageTrendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                                <YAxis name="Minutos" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} tickLine={false} axisLine={false} />
+                                <Tooltip 
+                                  contentStyle={{ backgroundColor: "hsl(var(--card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                                  formatter={(value: number) => [`${value} min`, "Uso Total"]}
+                                />
+                                <Bar dataKey="minutes" name="Uso Total (minutos)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">Nenhum dado de uso registrado.</div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Engajamento</CardTitle>
+                    <CardDescription>Ranking de tempo de uso</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2">
+                      {usageByTenant.length > 0 ? (
+                        usageByTenant.slice(0, 10).map((tenant, idx) => (
+                          <div key={tenant.id} className="flex items-center justify-between group">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
+                                {idx + 1}º
+                              </div>
+                              <div className="truncate">
+                                <p className="text-sm font-medium leading-none truncate">{tenant.full_name}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{tenant.formattedTime} no total</p>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 px-2 text-xs"
+                              onClick={() => setViewUsage({ userId: tenant.user_id, name: tenant.full_name })}
+                            >
+                              Ver mais
+                            </Button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="flex h-full min-h-[200px] items-center justify-center text-sm text-muted-foreground">Nenhum dado registrado.</div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </>
           )}
 
@@ -419,6 +545,7 @@ export default function SaasAdmin() {
                         <TableHead>Nome</TableHead>
                         <TableHead>E-mail</TableHead>
                         <TableHead>Cadastro</TableHead>
+                        <TableHead>Uso Total</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
@@ -443,13 +570,23 @@ export default function SaasAdmin() {
                             <TableCell>{t.email}</TableCell>
                             <TableCell>{format(new Date(t.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                             <TableCell>
+                              <Badge variant="outline" className="bg-primary/5">{usageByTenant.find(u => u.id === t.id)?.formattedTime || "0m"}</Badge>
+                            </TableCell>
+                            <TableCell>
                               {t.is_banned ? (
                                 <Badge variant="outline" className="bg-red-500/10 text-red-500">Bloqueado</Badge>
                               ) : (
                                 <Badge variant="outline" className="bg-emerald-500/10 text-emerald-500">Ativo</Badge>
                               )}
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="text-right space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setViewUsage({ userId: t.user_id, name: t.full_name })}
+                              >
+                                <Loader2 className="h-3 w-3 mr-1" /> Uso
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -677,6 +814,67 @@ export default function SaasAdmin() {
           )}
         </div>
       </main>
+
+      {/* Usage Detail Dialog */}
+      <Dialog open={!!viewUsage} onOpenChange={() => setViewUsage(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Histórico de Uso: {viewUsage?.name}</DialogTitle>
+            <DialogDescription>
+              Frequência de acesso e tempo de permanência nos últimos 30 dias.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="h-64 mt-4">
+            {viewUsage && usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.length ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.map((h: any) => ({
+                  date: format(new Date(h.usage_date), "dd/MM"),
+                  minutes: h.duration_minutes
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                    formatter={(value: number) => [`${value} min`, "Uso"]}
+                  />
+                  <Area type="monotone" dataKey="minutes" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted-foreground border rounded-lg bg-muted/20">
+                Nenhum dado de uso detalhado para este lojista ainda.
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="p-3 border rounded-lg bg-card">
+              <p className="text-xs text-muted-foreground mb-1">Média Diária</p>
+              <p className="text-xl font-bold">
+                {viewUsage ? Math.round((usageByTenant.find(u => u.user_id === viewUsage.userId)?.totalMinutes || 0) / Math.max(1, usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.length || 1)) : 0} min
+              </p>
+            </div>
+            <div className="p-3 border rounded-lg bg-card">
+              <p className="text-xs text-muted-foreground mb-1">Total Acumulado</p>
+              <p className="text-xl font-bold">
+                {viewUsage ? usageByTenant.find(u => u.user_id === viewUsage.userId)?.formattedTime : "0m"}
+              </p>
+            </div>
+            <div className="p-3 border rounded-lg bg-card">
+              <p className="text-xs text-muted-foreground mb-1">Dias Ativos</p>
+              <p className="text-xl font-bold">
+                {viewUsage ? usageByTenant.find(u => u.user_id === viewUsage.userId)?.history?.length : 0}
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setViewUsage(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm ban/unban dialog */}
       <Dialog open={!!confirmBan} onOpenChange={() => setConfirmBan(null)}>

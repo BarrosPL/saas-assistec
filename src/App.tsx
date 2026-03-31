@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { UserActivityProvider } from "@/contexts/UserActivityContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import Index from "./pages/Index";
@@ -29,121 +30,129 @@ const App = () => (
   <ThemeProvider>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/update-password" element={<UpdatePassword />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/clientes"
-                element={
-                  <ProtectedRoute>
-                    <Customers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/clientes/novo"
-                element={
-                  <ProtectedRoute>
-                    <NewCustomer />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ordens"
-                element={
-                  <ProtectedRoute>
-                    <ServiceOrders />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ordens/nova"
-                element={
-                  <ProtectedRoute>
-                    <NewServiceOrder />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/estoque"
-                element={
-                  <ProtectedRoute>
-                    <Inventory />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/estoque/novo"
-                element={
-                  <ProtectedRoute>
-                    <NewProduct />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendas"
-                element={
-                  <ProtectedRoute>
-                    <Sales />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendas/nova"
-                element={
-                  <ProtectedRoute>
-                    <NewSale />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/financeiro"
-                element={
-                  <ProtectedRoute>
-                    <Financial />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios"
-                element={
-                  <ProtectedRoute>
-                    <Reports />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/configuracoes"
-                element={
-                  <ProtectedRoute>
-                    <Settings />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/saas-admin"
-                element={
-                  <ProtectedRoute>
-                    <SaasAdmin />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <UserActivityProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/update-password" element={<UpdatePassword />} />
+                <Route
+                  path="*"
+                  element={
+                    <Routes>
+                      <Route
+                        path="/"
+                        element={
+                          <ProtectedRoute>
+                            <Index />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/clientes"
+                        element={
+                          <ProtectedRoute>
+                            <Customers />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/clientes/novo"
+                        element={
+                          <ProtectedRoute>
+                            <NewCustomer />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ordens"
+                        element={
+                          <ProtectedRoute>
+                            <ServiceOrders />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ordens/nova"
+                        element={
+                          <ProtectedRoute>
+                            <NewServiceOrder />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/estoque"
+                        element={
+                          <ProtectedRoute>
+                            <Inventory />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/estoque/novo"
+                        element={
+                          <ProtectedRoute>
+                            <NewProduct />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/vendas"
+                        element={
+                          <ProtectedRoute>
+                            <Sales />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/vendas/nova"
+                        element={
+                          <ProtectedRoute>
+                            <NewSale />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/financeiro"
+                        element={
+                          <ProtectedRoute>
+                            <Financial />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/relatorios"
+                        element={
+                          <ProtectedRoute>
+                            <Reports />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/configuracoes"
+                        element={
+                          <ProtectedRoute>
+                            <Settings />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/saas-admin"
+                        element={
+                          <ProtectedRoute>
+                            <SaasAdmin />
+                          </ProtectedRoute>
+                        }
+                      />
+                    </Routes>
+                  }
+                />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </UserActivityProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ThemeProvider>
