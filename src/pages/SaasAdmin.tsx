@@ -87,7 +87,7 @@ export default function SaasAdmin() {
     queryKey: ["saas-metrics"],
     queryFn: async () => {
       const [profiles, orders, sales] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }), // Carrega TODOS os perfis sem exceção
+        supabase.from("profiles").select("id", { count: "exact", head: true }).or("is_super_admin.is.null,is_super_admin.eq.false"), 
         supabase.from("service_orders").select("id", { count: "exact", head: true }),
         supabase.from("sales").select("total").neq("total", 0),
       ]);
@@ -105,19 +105,17 @@ export default function SaasAdmin() {
   const { data: tenants, isLoading: tenantsLoading } = useQuery({
     queryKey: ["saas-tenants"],
     queryFn: async () => {
-      console.log("[SaasAdmin] Diagnostic: Buscando todos os perfis (incluindo admins)...");
+      console.log("[SaasAdmin] Buscando apenas lojistas (exclui admins)...");
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
+        .or("is_super_admin.is.null,is_super_admin.eq.false")
         .order("created_at", { ascending: false });
       
       if (error) {
         console.error("Tenants query error:", error);
       }
-      console.log(`[SaasAdmin] Total de perfis carregados: ${data?.length || 0}`);
-      if (data) {
-        console.log("[SaasAdmin] IDs dos perfis:", data.map(p => p.user_id));
-      }
+      console.log(`[SaasAdmin] Lojistas encontrados: ${data?.length || 0}`);
       return data || [];
     },
   });
@@ -600,29 +598,29 @@ export default function SaasAdmin() {
                     <TableBody>
                       {tenantsLoading ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8">
+                          <TableCell colSpan={6} className="text-center py-8">
                             <Loader2 className="h-5 w-5 animate-spin mx-auto" />
                           </TableCell>
                         </TableRow>
-                      ) : tenants?.length === 0 ? (
+                      ) : usageByTenant.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                             Nenhum lojista cadastrado. <button className="text-primary hover:underline" onClick={() => setActiveTab("create")}>Criar agora</button>
                           </TableCell>
                         </TableRow>
                       ) : (
-                          tenants?.map((t) => (
-                            <TableRow key={t.id}>
-                              <TableCell className="font-medium">
-                                <div>
-                                  {t.full_name}
-                                  <div className="text-[10px] text-muted-foreground font-mono">UID: {t.user_id}</div>
-                                </div>
-                              </TableCell>
-                              <TableCell>{t.email}</TableCell>
-                            <TableCell>{format(new Date(t.created_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
+                        usageByTenant.map((t) => (
+                          <TableRow key={t.id}>
+                            <TableCell className="font-medium">
+                              <div>
+                                {t.full_name}
+                                <div className="text-[10px] text-muted-foreground font-mono">UID: {t.user_id}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{t.email}</TableCell>
+                            <TableCell>{t.created_at ? format(new Date(t.created_at), "dd/MM/yyyy", { locale: ptBR }) : "—"}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className="bg-primary/5">{usageByTenant.find(u => u.id === t.id)?.formattedTime || "0m"}</Badge>
+                              <Badge variant="outline" className="bg-primary/5">{t.formattedTime || "0m"}</Badge>
                             </TableCell>
                             <TableCell>
                               {t.is_banned ? (
@@ -644,6 +642,7 @@ export default function SaasAdmin() {
                                 size="sm"
                                 className={t.is_banned ? "text-emerald-500 hover:text-emerald-600" : "text-destructive hover:text-destructive"}
                                 onClick={() => setConfirmBan({ userId: t.user_id, name: t.full_name, isBanned: !t.is_banned })}
+                                disabled={t.id.startsWith("unknown")}
                               >
                                 {t.is_banned ? (
                                   <><CheckCircle2 className="h-3 w-3 mr-1" /> Reativar</>
