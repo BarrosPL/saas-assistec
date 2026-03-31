@@ -153,18 +153,21 @@ export default function SaasAdmin() {
     });
   }, [tenants]);
 
-  // Usage logs query
+  // 3. Usage logs query (A fonte da verdade para o tempo de uso)
   const { data: usageLogs } = useQuery({
     queryKey: ["saas-usage-logs"],
     queryFn: async () => {
-      console.log("[SaasAdmin] Buscando logs de uso globais...");
+      console.log("[SaasAdmin] Buscando logs da tabela user_usage_logs...");
       const { data, error } = await supabase
         .from("user_usage_logs" as any)
         .select("*");
-      if (error) {
-        console.error("Usage logs query error:", error);
+      
+      if (data) {
+        const emanuelId = "bef8774f-ada1-4c3a-9559-7f002f383c64";
+        const found = data.some((l: any) => l.user_id === emanuelId);
+        console.log(`[DIAGNOSTICO] Emanuel encontrado nos logs: ${found ? "SIM" : "NÃO"}`);
+        console.log(`[DIAGNOSTICO] Total de registros recebidos: ${data.length}`);
       }
-      console.log(`[SaasAdmin] ${data?.length || 0} logs de uso recebidos.`);
       return data || [];
     },
     refetchInterval: 30000, 
@@ -173,15 +176,19 @@ export default function SaasAdmin() {
   const usageByTenant = useMemo(() => {
     if (!usageLogs || !tenants || !allProfiles) return [];
     
-    // Criar um mapa de quem é super admin para exclusão rápida
     const adminMap = new Set(allProfiles.filter(p => p.is_super_admin === true).map(p => p.user_id));
+    const emanuelId = "bef8774f-ada1-4c3a-9559-7f002f383c64";
     
     // 1. Processar lojistas conhecidos (não administradores)
     const result = tenants.map(t => {
-      // Se por algum motivo um admin estiver na lista de lojistas, pulamos (segurança extra)
       if (adminMap.has(t.user_id)) return null;
 
       const userLogs = usageLogs.filter((l: any) => l.user_id === t.user_id);
+      
+      if (t.user_id === emanuelId) {
+        console.log(`[DIAGNOSTICO] Processando Emanuel: ${userLogs.length} logs encontrados.`);
+      }
+
       const totalMinutes = userLogs.reduce((sum: number, l: any) => sum + Number(l.duration_minutes || 0), 0);
       
       const hours = Math.floor(totalMinutes / 60);
@@ -199,7 +206,6 @@ export default function SaasAdmin() {
     // 2. Identificar atividade de quem NÃO tem perfil mas NÃO é admin conhecido
     const knownUserIds = new Set(allProfiles.map(p => p.user_id));
     const logsFromNewUsers = usageLogs.filter((l: any) => {
-      // Inclui se: não tem perfil OU (tem perfil mas não é admin)
       const isAdmin = adminMap.has(l.user_id);
       return !isAdmin && !knownUserIds.has(l.user_id);
     });
